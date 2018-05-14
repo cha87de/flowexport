@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# include bpkg  dependencies
+source /usr/local/bin/retry
+source /usr/local/bin/bgo
+source /usr/local/bin/bgowait
+
+##############################################################################
+# validate if all container variables are set
+##############################################################################
+function validate(){
+    vars="INTERFACE"
+    for var in $vars; do
+        if [[ $(env | awk -F "=" '{print $1}' | grep "^$var$") != "$var" ]]; then
+            echo "$var not set but required."
+            return 1
+        fi
+    done
+}
+
+##############################################################################
+function start_nfcapd(){
+    # whatever blocking call
+    nfcapd -b 127.0.0.1 -p 4432 -l /opt/flowexport/nfcapd
+}
+function start_softflowd(){
+    softflowd -i $INTERFACE -d -n 127.0.0.1:4432
+}
+function start(){
+    echo "starting applications..."
+    bgo start_nfcapd start_softflowd
+    if [[ $? != 0 ]]; then
+        echo "start failed. exiting now." >&2
+        exit 1
+    fi
+}
+
+##############################################################################
+function main(){
+    # validate env vars
+    validate
+    if [[ $? != 0 ]]; then 
+        echo "validation failed. exiting now." >&2
+        exit 1
+    fi
+
+    # initialize
+    #init
+    #if [[ $? != 0 ]]; then 
+    #    echo "init failed. exiting now." >&2
+    #    exit 1
+    #fi
+
+    # start
+    start 
+    if [[ $? != 0 ]]; then
+        echo "start failed. exiting now." >&2
+        exit 1
+    fi    
+
+    # configure
+    #retry 5 5 "configure failed." configure
+    #if [[ $? != 0 ]]; then
+    #    echo "cannot run configure." >&2
+    #    exit 1
+    #fi
+
+    # wait
+    echo "done. now waiting for services."
+    #freq=5; waitForN=-1; killTasks=0 # fail one, ignore (development mode)
+    freq=5; waitForN=1; killTasks=1 #fail one, fail all (production mode)
+    bgowait $freq $waitForN $killTasks
+}
+
+if [[ "$1" == "" ]]; then
+    main
+else
+    exec "$@"
+fi
