@@ -33,7 +33,8 @@ function start_nfdump(){
             cd /opt/flowexport/nfcapd
             files=$(ls . | grep -v current) # all except nfcapd.current.14
             for file in $files; do
-                nfdump -r $file -a > ../nfdump/$file
+                newfile=$(echo $file | cut -d'.' -f2)
+                nfdump -r $file -a > ../nfdump/$newfile
                 rm $file
             done
         )
