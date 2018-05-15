@@ -20,11 +20,10 @@ function validate(){
 
 ##############################################################################
 function start_nfcapd(){
-    # whatever blocking call
-    nfcapd -b 127.0.0.1 -p 4432 -l /opt/flowexport/nfcapd -t $INTERVAL
+    nfcapd -b 127.0.0.1 -p 4433 -l /opt/flowexport/nfcapd -t $INTERVAL 2>&1 |  sed "s/^/[nfcapd] /"
 }
 function start_softflowd(){
-    softflowd -i $INTERFACE -d -n 127.0.0.1:4432
+    softflowd -i $INTERFACE -d -n 127.0.0.1:4433 2>&1 | sed "s/^/[softflowd] /"
 }
 function start_nfdump(){
     while true; do 
@@ -35,6 +34,7 @@ function start_nfdump(){
             for file in $files; do
                 newfile=$(echo $file | cut -d'.' -f2)
                 nfdump -r $file -a > ../nfdump/$newfile
+                echo "export file $newfile" 2>&1 | sed "s/^/[nfdump] /"
                 rm $file
             done
         )
