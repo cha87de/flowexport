@@ -9,7 +9,7 @@ source /usr/local/bin/bgowait
 # validate if all container variables are set
 ##############################################################################
 function validate(){
-    vars="INTERFACE"
+    vars="INTERFACE INTERVAL"
     for var in $vars; do
         if [[ $(env | awk -F "=" '{print $1}' | grep "^$var$") != "$var" ]]; then
             echo "$var not set but required."
@@ -21,14 +21,27 @@ function validate(){
 ##############################################################################
 function start_nfcapd(){
     # whatever blocking call
-    nfcapd -b 127.0.0.1 -p 4432 -l /opt/flowexport/nfcapd
+    nfcapd -b 127.0.0.1 -p 4432 -l /opt/flowexport/nfcapd -t $INTERVAL
 }
 function start_softflowd(){
     softflowd -i $INTERFACE -d -n 127.0.0.1:4432
 }
+function start_nfdump(){
+    while true; do 
+        sleep $INTERVAL
+        (
+            cd /opt/flowexport/nfcapd
+            files=$(ls . | grep -v current) # all except nfcapd.current.14
+            for file in $files; do
+                nfdump -r $file -a > ../nfdump/$file
+                rm $file
+            done
+        )
+    done
+}
 function start(){
     echo "starting applications..."
-    bgo start_nfcapd start_softflowd
+    bgo start_nfcapd start_softflowd start_nfdump
     if [[ $? != 0 ]]; then
         echo "start failed. exiting now." >&2
         exit 1
