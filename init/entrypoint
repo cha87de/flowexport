@@ -24,7 +24,13 @@ function start_nfcapd(){
 }
 function start_softflowd-listener(){
     i=$1
-    timeout -t $INTERVAL softflowd -i $i -p /var/run/softflowd-${i}.pid -c /var/run/softflowd-${i}.pid -d -n 127.0.0.1:4433 2>&1 | sed "s/^/[softflowd] /"
+    softflowd -i $i -p /var/run/softflowd-${i}.pid -c /var/run/softflowd-${i}.pid -d -n 127.0.0.1:4433 2>&1 | sed "s/^/[softflowd] /"
+}
+function start_softflowd-terminator(){
+   i=$1
+   sleep $INTERVAL
+   softflowctl -c /var/run/softflowd-${i}.pid expire-all
+   softflowctl -c /var/run/softflowd-${i}.pid shutdown
 }
 function start_softflowd(){
 
@@ -34,7 +40,7 @@ function start_softflowd(){
         while true; do 
             interfaces=$(ip -o link show | awk -F': ' '{print $2}' | grep $INTERFACE)
             for i in $interfaces; do
-                bgo -g softflowds "start_softflowd-listener $i"
+                bgo -g softflowds "start_softflowd-listener $i" "start_softflowd-terminator $i"
             done
             freq=1; waitForN=-1; killTasks=0 # fail one, ignore
             bgowait -g softflowds $freq $waitForN $killTasks
@@ -61,7 +67,7 @@ function start_nfdump(){
             cd /opt/flowexport/nfcapd
             files=$(ls . | grep -v current) # all except nfcapd.current.14
             for file in $files; do
-                newfile=$(echo $file | cut -d'.' -f2)
+                newfile=$(echo $(hostname)_$(date +%Y-%m-%d-%H-%M-%S))
                 nfdump -r $file -a > ../nfdump/$newfile
                 gzip ../nfdump/$newfile
                 echo "export file $newfile" 2>&1 | sed "s/^/[nfdump] /"
