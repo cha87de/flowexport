@@ -12,6 +12,7 @@ https://hub.docker.com/r/cha87de/flowexport/
 docker run -d --rm -ti \
     -e INTERFACE=enp3s0 \
     -e INTERVAL=60 \
+    -e MAXAGE=2 \
     --network=host \
     -v /tmp/nfdump:/opt/flowexport/nfdump \
     cha87de/flowexport:latest
@@ -21,6 +22,7 @@ Required environment variables:
 
  - `INTERFACE`: the interface which will be listened in promiscuous mode
  - `INTERVAL`: seconds to wait before dumping flows to text files
+ - `MAXAGE`: days after dumps are removed
 
 The flows will be dumped every $INTERVAL seconds to /opt/flowexport/nfdump as text files, e.g.:
 

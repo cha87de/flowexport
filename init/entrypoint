@@ -9,7 +9,7 @@ source /usr/local/bin/bgowait
 # validate if all container variables are set
 ##############################################################################
 function validate(){
-    vars="INTERFACE INTERVAL"
+    vars="INTERFACE INTERVAL MAXAGE"
     for var in $vars; do
         if [[ $(env | awk -F "=" '{print $1}' | grep "^$var$") != "$var" ]]; then
             echo "$var not set but required."
@@ -25,6 +25,13 @@ function start_nfcapd(){
 function start_softflowd(){
     softflowd -i $INTERFACE -d -n 127.0.0.1:4433 2>&1 | sed "s/^/[softflowd] /"
 }
+function cleanup(){
+    # remove dumps older than $MAXAGE days
+    find /opt/flowexport/nfdump -maxdepth 1 -mtime +${MAXAGE} -type f -exec rm -rv {} \;
+    # print dump size
+    dumpsize=$(du /opt/flowexport/ -hs)
+    echo "current dump size: $dumpsize" 2>&1 | sed "s/^/[flowexport] /"    
+}
 function start_nfdump(){
     while true; do 
         sleep $INTERVAL
@@ -34,10 +41,12 @@ function start_nfdump(){
             for file in $files; do
                 newfile=$(echo $file | cut -d'.' -f2)
                 nfdump -r $file -a > ../nfdump/$newfile
+                gzip ../nfdump/$newfile
                 echo "export file $newfile" 2>&1 | sed "s/^/[nfdump] /"
                 rm $file
             done
         )
+        cleanup
     done
 }
 function start(){
