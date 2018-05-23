@@ -18,9 +18,21 @@ docker run -d --rm -ti \
     cha87de/flowexport:latest
 ```
 
+or with wildcard interface:
+
+```
+docker run -d --rm -ti \
+    -e INTERFACE=brq* \
+    -e INTERVAL=60 \
+    -e MAXAGE=2 \
+    --network=host \
+    -v /tmp/nfdump:/opt/flowexport/nfdump \
+    cha87de/flowexport:latest
+```
+
 Required environment variables:
 
- - `INTERFACE`: the interface which will be listened in promiscuous mode
+ - `INTERFACE`: the interface which will be listened in promiscuous mode. If * at end, one softflowd per matching interface will be started. Matching interfaces are checked every $INTERVAL seconds.
  - `INTERVAL`: seconds to wait before dumping flows to text files
  - `MAXAGE`: days after dumps are removed
 

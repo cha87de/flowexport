@@ -22,8 +22,30 @@ function validate(){
 function start_nfcapd(){
     nfcapd -b 127.0.0.1 -p 4433 -l /opt/flowexport/nfcapd -t $INTERVAL 2>&1 |  sed "s/^/[nfcapd] /"
 }
+function start_softflowd-listener(){
+    i=$1
+    timeout -t $INTERVAL softflowd -i $i -p /var/run/softflowd-${i}.pid -c /var/run/softflowd-${i}.pid -d -n 127.0.0.1:4433 2>&1 | sed "s/^/[softflowd] /"
+}
 function start_softflowd(){
-    softflowd -i $INTERFACE -d -n 127.0.0.1:4433 2>&1 | sed "s/^/[softflowd] /"
+
+    if [[ "$INTERFACE" =~ ^.*\* ]]; then
+        # find matching interfaces
+        echo "found wildcard interface" 2>&1 | sed "s/^/[softflowd] /"
+        while true; do 
+            interfaces=$(ip -o link show | awk -F': ' '{print $2}' | grep $INTERFACE)
+            for i in $interfaces; do
+                bgo -g softflowds "start_softflowd-listener $i"
+            done
+            freq=1; waitForN=-1; killTasks=0 # fail one, ignore
+            bgowait -g softflowds $freq $waitForN $killTasks
+        done            
+    else
+        # start listening on single interface
+        echo "start listening on single interface $INTERFACE" 2>&1 | sed "s/^/[softflowd] /"
+        softflowd -i $INTERFACE -d -n 127.0.0.1:4433 2>&1 | sed "s/^/[softflowd] /"
+    fi
+
+
 }
 function cleanup(){
     # remove dumps older than $MAXAGE days
@@ -51,7 +73,7 @@ function start_nfdump(){
 }
 function start(){
     echo "starting applications..."
-    bgo start_nfcapd start_softflowd start_nfdump
+    bgo -g services start_nfcapd start_softflowd start_nfdump
     if [[ $? != 0 ]]; then
         echo "start failed. exiting now." >&2
         exit 1
@@ -92,7 +114,7 @@ function main(){
     echo "done. now waiting for services."
     #freq=5; waitForN=-1; killTasks=0 # fail one, ignore (development mode)
     freq=5; waitForN=1; killTasks=1 #fail one, fail all (production mode)
-    bgowait $freq $waitForN $killTasks
+    bgowait -g services $freq $waitForN $killTasks
 }
 
 if [[ "$1" == "" ]]; then
