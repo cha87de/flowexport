@@ -29,8 +29,8 @@ function start_softflowd-listener(){
 function start_softflowd-terminator(){
    i=$1
    sleep $INTERVAL
-   softflowctl -c /var/run/softflowd-${i}.pid expire-all
-   softflowctl -c /var/run/softflowd-${i}.pid shutdown
+   softflowctl -c /var/run/softflowd-${i}.pid expire-all    | sed "s/^/[softflowd] /"
+   softflowctl -c /var/run/softflowd-${i}.pid shutdown      | sed "s/^/[softflowd] /"
 }
 function start_softflowd(){
 
@@ -40,7 +40,7 @@ function start_softflowd(){
         while true; do 
             interfaces=$(ip -o link show | awk -F': ' '{print $2}' | grep $INTERFACE)
             for i in $interfaces; do
-                bgo -g softflowds "start_softflowd-listener $i" "start_softflowd-terminator $i"
+                bgo -g softflowds "start_softflowd-listener $i" "start_softflowd-terminator $i" | sed "s/^/[softflowd] /"
             done
             freq=1; waitForN=-1; killTasks=0 # fail one, ignore
             bgowait -g softflowds $freq $waitForN $killTasks
