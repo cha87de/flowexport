@@ -33,14 +33,15 @@ function start_softflowd-terminator(){
    softflowctl -c /var/run/softflowd-${i}.pid shutdown      | sed "s/^/[softflowd] /"
 }
 function start_softflowd(){
-
     if [[ "$INTERFACE" =~ ^.*\* ]]; then
         # find matching interfaces
         echo "found wildcard interface" 2>&1 | sed "s/^/[softflowd] /"
         while true; do 
             interfaces=$(ip -o link show | awk -F': ' '{print $2}' | grep $INTERFACE)
             for i in $interfaces; do
-                bgo -g softflowds "start_softflowd-listener $i" "start_softflowd-terminator $i" | sed "s/^/[softflowd] /"
+                echo "found interface $i"
+                bgo -g softflowds "start_softflowd-listener $i"
+                bgo -g softflowds "start_softflowd-terminator $i"
             done
             freq=1; waitForN=-1; killTasks=0 # fail one, ignore
             bgowait -g softflowds $freq $waitForN $killTasks
@@ -50,8 +51,6 @@ function start_softflowd(){
         echo "start listening on single interface $INTERFACE" 2>&1 | sed "s/^/[softflowd] /"
         softflowd -i $INTERFACE -d -n 127.0.0.1:4433 2>&1 | sed "s/^/[softflowd] /"
     fi
-
-
 }
 function cleanup(){
     # remove dumps older than $MAXAGE days
