@@ -8,17 +8,34 @@ https://hub.docker.com/r/cha87de/flowexport/
 
 ## Usage
 
+Collect flows and export as text to files in folder `/opt/flowexport/nfdump`:
+
 ```
 docker run -d --rm -ti \
     -e INTERFACE=enp3s0 \
     -e INTERVAL=60 \
     -e MAXAGE=2 \
+    -e MODE=text \
     --network=host \
     -v /tmp/nfdump:/opt/flowexport/nfdump \
     cha87de/flowexport:latest
 ```
 
-or with wildcard interface:
+Collect flows and send netflow v9 via UDP to `target`:
+
+```
+docker run -d --rm -ti \
+    -e INTERFACE=enp3s0 \
+    -e INTERVAL=60 \
+    -e MAXAGE=2 \
+    -e MODE=netflow \
+    -e TARGET=
+    --network=host \
+    -v /tmp/nfdump:/opt/flowexport/nfdump \
+    cha87de/flowexport:latest
+```
+
+Besides single interface, a wildcard interface is supported:
 
 ```
 docker run -d --rm -ti \
@@ -30,13 +47,15 @@ docker run -d --rm -ti \
     cha87de/flowexport:latest
 ```
 
-Required environment variables:
+Environment variables:
 
- - `INTERFACE`: the interface which will be listened in promiscuous mode. If * at end, one softflowd per matching interface will be started. Matching interfaces are checked every $INTERVAL seconds.
- - `INTERVAL`: seconds to wait before dumping flows to text files
- - `MAXAGE`: days after dumps are removed
+ - `INTERFACE`: (required) the interface which will be listened in promiscuous mode. If * at end, one softflowd per matching interface will be started. Matching interfaces are checked every $INTERVAL seconds.
+ - `INTERVAL`: (required) seconds to wait before dumping flows to text files
+ - `MODE`: text (default) or netflow
+ - `MAXAGE`: (required for `mode` 'text') days after dumps are removed (relevant for file dump mode only)
+ - `TARGET`: (required for `mode` 'netflow') host and port to send netflow datagrams to
 
-The flows will be dumped every $INTERVAL seconds to /opt/flowexport/nfdump as text files, e.g.:
+In MODE=text, the flows will be dumped every $INTERVAL seconds to /opt/flowexport/nfdump as text files, e.g.:
 
 ```
 -rw-r--r--. 1 root root 1.2K May 15 10:01 201805150759

@@ -9,13 +9,39 @@ source /usr/local/bin/bgowait
 # validate if all container variables are set
 ##############################################################################
 function validate(){
-    vars="INTERFACE INTERVAL MAXAGE"
+    vars="INTERFACE INTERVAL MODE"
     for var in $vars; do
         if [[ $(env | awk -F "=" '{print $1}' | grep "^$var$") != "$var" ]]; then
             echo "$var not set but required."
             return 1
         fi
     done
+
+    if [[ ! ($MODE == "text" || $MODE == "netflow" )  ]] ; then
+            echo "mode must be text or netflow. unknown mode $mode."
+            return 1    
+    fi
+
+    if [[ $MODE == "text" ]] ; then
+        vars="MAXAGE"
+        for var in $vars; do
+            if [[ $(env | awk -F "=" '{print $1}' | grep "^$var$") != "$var" ]]; then
+                echo "$var not set but required."
+                return 1
+            fi
+        done        
+    fi
+
+    if [[ $MODE == "netflow" ]] ; then
+        vars="TARGET"
+        for var in $vars; do
+            if [[ $(env | awk -F "=" '{print $1}' | grep "^$var$") != "$var" ]]; then
+                echo "$var not set but required."
+                return 1
+            fi
+        done        
+    fi    
+
 }
 
 ##############################################################################
@@ -24,7 +50,13 @@ function start_nfcapd(){
 }
 function start_softflowd-listener(){
     i=$1
-    softflowd -i $i -p /var/run/softflowd-${i}.pid -c /var/run/softflowd-${i}.pid -d -n 127.0.0.1:4433 2>&1 | sed "s/^/[softflowd] /"
+
+    target="127.0.0.1:4433" # use local nfcapd as target by default
+    if [[ $MODE == "netflow" ]] ; then
+        target=$TARGET
+    fi
+
+    softflowd -i $i -p /var/run/softflowd-${i}.pid -c /var/run/softflowd-${i}.pid -d -v 9 -n $target 2>&1 | sed "s/^/[softflowd] /"
 }
 function start_softflowd-terminator(){
    i=$1
@@ -77,11 +109,21 @@ function start_nfdump(){
     done
 }
 function start(){
-    echo "starting applications..."
-    bgo -g services start_nfcapd start_softflowd start_nfdump
-    if [[ $? != 0 ]]; then
-        echo "start failed. exiting now." >&2
-        exit 1
+    echo "starting applications... (mode: $MODE)"
+    if [[ $MODE == "text" ]] ; then
+        # start softflowd and also nfdump to write text output
+        bgo -g services start_nfcapd start_softflowd start_nfdump
+        if [[ $? != 0 ]]; then
+            echo "start failed. exiting now." >&2
+            exit 1
+        fi        
+    elif [[ $MODE == "netflow" ]] ; then
+        # start only softflowd
+        bgo -g services start_softflowd
+        if [[ $? != 0 ]]; then
+            echo "start failed. exiting now." >&2
+            exit 1
+        fi 
     fi
 }
 

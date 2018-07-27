@@ -16,6 +16,9 @@ ADD init /opt/docker-init
 # prepare data locations
 RUN mkdir -p /opt/flowexport/nfcapd ; mkdir -p /opt/flowexport/nfdump
 
+# set default envs
+ENV MODE text
+
 # start from init folder
 WORKDIR /opt/docker-init
 ENTRYPOINT ["./entrypoint"]
