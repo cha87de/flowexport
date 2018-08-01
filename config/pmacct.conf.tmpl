@@ -1,0 +1,7 @@
+daemonize: false
+aggregate: src_host, dst_host, src_port, dst_port, proto, src_mac
+
+plugins: nfprobe
+nfprobe_receiver: $TARGET
+nfprobe_version: 9
+nfprobe_timeouts: maxlife=$INTERVAL:tcp=$INTERVAL:udp=$INTERVAL:icmp=$INTERVAL:generic=$INTERVAL

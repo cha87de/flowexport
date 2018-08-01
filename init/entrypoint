@@ -6,8 +6,6 @@ source /usr/local/bin/bgo
 source /usr/local/bin/bgowait
 
 ##############################################################################
-# validate if all container variables are set
-##############################################################################
 function validate(){
     vars="INTERFACE INTERVAL MODE"
     for var in $vars; do
@@ -45,43 +43,46 @@ function validate(){
 }
 
 ##############################################################################
+function writeConfigOptions(){
+    echo "write config options"
+    export TARGET=$TARGET
+    export INTERVAL=$INTERVAL
+    cat /etc/docker-conf/pmacct.conf.tmpl \
+        | envsubst > /etc/docker-conf/pmacct.conf
+}
+function init(){
+    # write file based config options
+    writeConfigOptions
+}
+
+##############################################################################
 function start_nfcapd(){
+    # start netflow collector
     nfcapd -b 127.0.0.1 -p 4433 -l /opt/flowexport/nfcapd -t $INTERVAL 2>&1 |  sed "s/^/[nfcapd] /"
 }
-function start_softflowd-listener(){
+function start_pmacctd-listener(){
     i=$1
-
-    target="127.0.0.1:4433" # use local nfcapd as target by default
-    if [[ $MODE == "netflow" ]] ; then
-        target=$TARGET
-    fi
-
-    softflowd -i $i -p /var/run/softflowd-${i}.pid -c /var/run/softflowd-${i}.pid -d -v 9 -n $target 2>&1 | sed "s/^/[softflowd] /"
+    # start interface sniffer and netflow sender
+    pmacctd -i $i -f /etc/docker-conf/pmacct.conf 2>&1 | sed "s/^/[pmacctd] /"
 }
-function start_softflowd-terminator(){
-   i=$1
-   sleep $INTERVAL
-   softflowctl -c /var/run/softflowd-${i}.pid expire-all    | sed "s/^/[softflowd] /"
-   softflowctl -c /var/run/softflowd-${i}.pid shutdown      | sed "s/^/[softflowd] /"
-}
-function start_softflowd(){
+function start_pmacctd(){
+    # find and start instance for each interface
     if [[ "$INTERFACE" =~ ^.*\* ]]; then
         # find matching interfaces
-        echo "found wildcard interface" 2>&1 | sed "s/^/[softflowd] /"
-        while true; do 
-            interfaces=$(ip -o link show | awk -F': ' '{print $2}' | grep $INTERFACE)
-            for i in $interfaces; do
-                echo "found interface $i"
-                bgo -g softflowds "start_softflowd-listener $i"
-                bgo -g softflowds "start_softflowd-terminator $i"
-            done
-            freq=1; waitForN=-1; killTasks=0 # fail one, ignore
-            bgowait -g softflowds $freq $waitForN $killTasks
-        done            
+        echo "found wildcard interface" 2>&1 | sed "s/^/[pmacctd] /"
+        interfaces=$(ip -o link show | awk -F': ' '{print $2}' | grep $INTERFACE)
+        for i in $interfaces; do
+            echo "found interface $i"
+            bgo -g pmacctd "start_pmacctd-listener $i"
+        done
+        freq=1; waitForN=-1; killTasks=0 # ignore if one fails (might be gone)
+        echo "waiting for pmacctd"
+        bgowait -g pmacctd $freq $waitForN $killTasks
+        echo "all pmacctd stopped."
     else
         # start listening on single interface
-        echo "start listening on single interface $INTERFACE" 2>&1 | sed "s/^/[softflowd] /"
-        softflowd -i $INTERFACE -d -n 127.0.0.1:4433 2>&1 | sed "s/^/[softflowd] /"
+        echo "start listening on single interface $INTERFACE" 2>&1 | sed "s/^/[pmacctd] /"
+        pmacctd -i $INTERFACE -f /etc/docker-conf/pmacct.conf 2>&1 | sed "s/^/[pmacctd] /"
     fi
 }
 function cleanup(){
@@ -92,6 +93,7 @@ function cleanup(){
     echo "current dump size: $dumpsize" 2>&1 | sed "s/^/[flowexport] /"    
 }
 function start_nfdump(){
+    # connect to netflow collector and dump to text files
     while true; do 
         sleep $INTERVAL
         (
@@ -108,18 +110,37 @@ function start_nfdump(){
         cleanup
     done
 }
+function start_interfacechangedetector(){
+    if [[ "$INTERFACE" =~ ^.*\* ]]; then
+
+        interfaces=$(ip -o link show | awk -F': ' '{print $2}' | grep $INTERFACE)
+        while true; do
+            sleep $INTERVAL
+            currentInterfaces=$(ip -o link show | awk -F': ' '{print $2}' | grep $INTERFACE)
+            if [[ "$interfaces" != "$currentInterfaces" ]]; then
+                echo "change in interfaces detected! need to be restarted." 2>&1 | sed "s/^/[interfacechangedetector] /"
+                echo "previous interfaces: $interfaces - current interfaces: $currentInterfaces" 2>&1 | sed "s/^/[interfacechangedetector] /"
+                return 0
+            fi
+        done
+
+    else 
+        # static interface defined - nothing to detect here
+        sleep infinity
+    fi
+}
 function start(){
     echo "starting applications... (mode: $MODE)"
     if [[ $MODE == "text" ]] ; then
-        # start softflowd and also nfdump to write text output
-        bgo -g services start_nfcapd start_softflowd start_nfdump
+        # start pmacctd and also nfdump to write text output
+        bgo -g services start_nfcapd start_pmacctd start_nfdump start_interfacechangedetector
         if [[ $? != 0 ]]; then
             echo "start failed. exiting now." >&2
             exit 1
         fi        
     elif [[ $MODE == "netflow" ]] ; then
-        # start only softflowd
-        bgo -g services start_softflowd
+        # start only pmacctd
+        bgo -g services start_pmacctd start_interfacechangedetector
         if [[ $? != 0 ]]; then
             echo "start failed. exiting now." >&2
             exit 1
@@ -137,11 +158,11 @@ function main(){
     fi
 
     # initialize
-    #init
-    #if [[ $? != 0 ]]; then 
-    #    echo "init failed. exiting now." >&2
-    #    exit 1
-    #fi
+    init
+    if [[ $? != 0 ]]; then 
+        echo "init failed. exiting now." >&2
+        exit 1
+    fi
 
     # start
     start 
