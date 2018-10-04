@@ -1,7 +1,7 @@
 # flowexport
 
 Alpine Docker container to expose network flow data.
-Based on softflowd and nfdump.
+Based on pmacctd and nfdump.
 
 An automated build is available at Docker Hub:
 https://hub.docker.com/r/cha87de/flowexport/
@@ -49,7 +49,7 @@ docker run -d --rm -ti \
 
 Environment variables:
 
- - `INTERFACE`: (required) the interface which will be listened in promiscuous mode. If * at end, one softflowd per matching interface will be started. Matching interfaces are checked every $INTERVAL seconds.
+ - `INTERFACE`: (required) the interface which will be listened in promiscuous mode. If * at end, one pmacctd per matching interface will be started. Matching interfaces are checked every $INTERVAL seconds.
  - `INTERVAL`: (required) seconds to wait before dumping flows to text files
  - `MODE`: text (default) or netflow
  - `MAXAGE`: (required for `mode` 'text') days after dumps are removed (relevant for file dump mode only)
