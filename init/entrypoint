@@ -126,7 +126,7 @@ function start_interfacechangedetector(){
 
     else 
         # static interface defined - nothing to detect here
-        sleep infinity
+        while true; do sleep 10000; done
     fi
 }
 function start(){
