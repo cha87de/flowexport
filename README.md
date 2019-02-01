@@ -11,7 +11,7 @@ https://hub.docker.com/r/cha87de/flowexport/
 Collect flows and export as text to files in folder `/opt/flowexport/nfdump`:
 
 ```
-docker run -d --rm -ti \
+docker run -d -ti \
     -e INTERFACE=enp3s0 \
     -e INTERVAL=60 \
     -e MAXAGE=2 \
@@ -24,7 +24,7 @@ docker run -d --rm -ti \
 Collect flows and send netflow v9 via UDP to `target`:
 
 ```
-docker run -d --rm -ti \
+docker run -d -ti \
     -e INTERFACE=enp3s0 \
     -e INTERVAL=60 \
     -e MAXAGE=2 \
@@ -38,7 +38,7 @@ docker run -d --rm -ti \
 Besides single interface, a wildcard interface is supported:
 
 ```
-docker run -d --rm -ti \
+docker run -d -ti \
     -e INTERFACE=brq* \
     -e INTERVAL=60 \
     -e MAXAGE=2 \
