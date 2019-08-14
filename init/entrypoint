@@ -70,7 +70,7 @@ function start_pmacctd(){
     if [[ "$INTERFACE" =~ ^.*\* ]]; then
         # find matching interfaces
         echo "found wildcard interface" 2>&1 | sed "s/^/[pmacctd] /"
-        interfaces=$(cat /proc/net/dev | awk -F': ' '{print $1}' | grep $INTERFACE)
+        interfaces=$(cat /proc/net/dev | awk -F': ' '{print $1}' | grep -e ^${INTERFACE})
         for i in $interfaces; do
             echo "found interface $i"
             bgo -g pmacctd "start_pmacctd-listener $i"
@@ -113,10 +113,10 @@ function start_nfdump(){
 function start_interfacechangedetector(){
     if [[ "$INTERFACE" =~ ^.*\* ]]; then
 
-        interfaces=$(cat /proc/net/dev | awk -F': ' '{print $1}' | grep $INTERFACE)
+        interfaces=$(cat /proc/net/dev | awk -F': ' '{print $1}' | grep -e ^${INTERFACE})
         while true; do
             sleep $INTERVAL
-            currentInterfaces=$(cat /proc/net/dev | awk -F': ' '{print $1}' | grep $INTERFACE)
+            currentInterfaces=$(cat /proc/net/dev | awk -F': ' '{print $1}' | grep -e ^${INTERFACE})
             if [[ "$interfaces" != "$currentInterfaces" ]]; then
                 echo "change in interfaces detected! need to be restarted." 2>&1 | sed "s/^/[interfacechangedetector] /"
                 echo "previous interfaces: $interfaces - current interfaces: $currentInterfaces" 2>&1 | sed "s/^/[interfacechangedetector] /"
